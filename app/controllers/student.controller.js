@@ -13,7 +13,8 @@ exports.create = (req, res) => {
   const student = new Student({
     email: req.body.email,
     name: req.body.name,
-    is_smart: req.body.is_smart
+    note: req.body.note,
+    is_smart: false
   });
 
   // Save Student in the database
