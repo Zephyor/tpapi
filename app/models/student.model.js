@@ -3,44 +3,46 @@ const sql = require("./db.js");
 const Student = function (student) {
     this.email = student.email;
     this.name = student.name;
-    this.note = student.note;
-    this.is_smart = student.is_smart;
+    this.exam_passed = false;
 };
 
 Student.create = (newStudent, result) => {
-    if (newStudent.note > 20 || newStudent.note < 0) {
-        result(null, { message: "Note non comprise dans l'intervalle 0-20" });
-        return;
-    }
-
-    const markedStudent = {
-        ...newStudent,
-        is_smart: newStudent.note >= 15
-    }
-
-    sql.query("INSERT INTO students SET ?", markedStudent, (err, res) => {
+    sql.query("INSERT INTO students SET ?", newStudent, (err, res) => {
         if (err) {
             console.log("error: ", err);
             result(err, null);
             return;
         }
 
-        console.log("created student: ", { id: res.insertId, ...markedStudent });
-        result(null, { id: res.insertId, ...markedStudent });
+        console.log("created student: ", { id: res.insertId, ...newStudent });
+        result(null, { id: res.insertId, ...newStudent });
     });
 };
 
 Student.findById = (studentId, result) => {
-    sql.query(`SELECT * FROM students WHERE id = ${studentId}`, (err, res) => {
+    sql.query(`SELECT * FROM students WHERE id = ${studentId}`, (err, resParent) => {
         if (err) {
             console.log("error: ", err);
             result(err, null);
             return;
         }
 
-        if (res.length) {
-            console.log("found student: ", res[0]);
-            result(null, res[0]);
+        if (resParent.length) {
+            console.log("found student: ", resParent[0]);
+
+            sql.query(`SELECT * FROM notes WHERE student_id = ${studentId}`, (err, res) => {
+                if (err) {
+                    console.log("error: ", err);
+                    result(null, err);
+                    return;
+                }
+
+                const marksArray = res.map((result) => result.mark)
+                const avg = marksArray.reduce((a, b) => a + b) / marksArray.length;
+                result(null, { ...resParent[0], averageMark: avg });
+
+            });
+
             return;
         }
 
@@ -62,19 +64,9 @@ Student.getAll = result => {
 };
 
 Student.updateById = (id, student, result) => {
-    if (student.note > 20 || student.note < 0)  {
-        result(null, { message: "Note non comprise dans l'intervalle 0-20" });
-        return;
-    }
-
-    const markedStudent = {
-        ...student,
-        is_smart: student.note >= 15
-    }
-
     sql.query(
-        "UPDATE students SET email = ?, name = ?, note = ?, is_smart = ? WHERE id = ?",
-        [markedStudent.email, markedStudent.name, markedStudent.note, markedStudent.is_smart, id],
+        "UPDATE students SET email = ?, name = ?, exam_passed = ? WHERE id = ?",
+        [student.email, student.name, student.exam_passed, id],
         (err, res) => {
             if (err) {
                 console.log("error: ", err);
@@ -87,8 +79,8 @@ Student.updateById = (id, student, result) => {
                 return;
             }
 
-            console.log("updated student: ", { id: id, ...markedStudent });
-            result(null, { id: id, ...markedStudent });
+            console.log("updated student: ", { id: id, ...student });
+            result(null, { id: id, ...student });
         }
     );
 };
